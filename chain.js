@@ -1,5 +1,6 @@
 import { Block, BlockHeader } from "./block.js";
 import moment from "moment/moment.js";
+import CryptoJS from "crypto-js";
 
 let getGenesisBlock = () => {
   let blockHeader = new BlockHeader(
@@ -32,6 +33,19 @@ export const addBlock = (newBlock) => {
   } else {
     return false;
   }
+};
+
+export const generateNextBlock = (txns) => {
+    const prevBlock = getLatestBlock();
+    const prevMerkleRoot = prevBlock.blockHeader.merkleRoot;
+    const nextIndex = prevBlock.index + 1;
+    const nextTime = moment().unix();
+    const nextMerkleRoot = CryptoJS.SHA256(1, prevMerkleRoot, nextTime).toString();
+
+    const blockHeader = new BlockHeader(1, prevMerkleRoot, nextMerkleRoot, nextTime);
+    const newBlock = new Block(blockHeader, nextIndex, txns);
+    // blockchain.push(newBlock);
+    return newBlock;
 };
 
 export const getBlock = (index) => {
