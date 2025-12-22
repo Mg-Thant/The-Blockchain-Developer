@@ -60,6 +60,23 @@ swarm.on("connection", (conn, info) => {
       );
 
       switch (message.type) {
+        case MessageType.REQUEST_LATEST_BLOCK:
+          console.log(
+            "-------------------- REQUEST_LATEST_BLOCK --------------------"
+          );
+          let latestBlock = getLatestBlock();
+          console.log("Latest block: " + JSON.parse(latestBlock));
+          writeMessageToPeers(MessageType.LATEST_BLOCK, latestBlock);
+          console.log(
+            "-------------------- REQUEST_LATEST_BLOCK --------------------"
+          );
+          break;
+        case MessageType.LATEST_BLOCK:
+          console.log("-------------------- LATEST_BLOCK --------------------");
+          networkLatestblock = JSON.parse(JSON.stringify(message.data));
+          console.log("Networklatest block: " + networkLatestblock);
+          console.log("-------------------- LATEST_BLOCK --------------------");
+          break;
         case MessageType.REQUEST_BLOCK:
           console.log("--------------------REQUEST_BLOCK--------------------");
           let requestedIndex = JSON.parse(JSON.stringify(message.data)).index;
@@ -94,7 +111,6 @@ swarm.on("connection", (conn, info) => {
           break;
         case MessageType.RECEIVE_NEW_BLOCK:
           if (
-            message.to === myPeerId.toString("hex") &&
             message.from !== myPeerId.toString("hex")
           ) {
             console.log(
@@ -117,7 +133,10 @@ swarm.on("connection", (conn, info) => {
               message.to
           );
           writeMessageToPeers(MessageType.REGISTER_MINER, registeredMiners);
-          // registeredMiners = JSON.parse(JSON.stringify(message.data));
+          let registerMinerTemp = JSON.parse(JSON.stringify(message.data));
+          if(registerMinerTemp != null) {
+            registeredMiners = registerMinerTemp;
+          }
           console.log(
             "-------------------- Request all register miners --------------------" +
               message.to
@@ -203,21 +222,26 @@ setTimeout(() => {
   writeMessageToPeers("Hello", { text: "Hi from Hyperswarm!" });
 }, 10000);
 
-// setTimeout(() => {
-//   writeMessageToPeers(MessageType.REQUEST_BLOCK, {
-//     index: getLatestBlock().index + 1,
-//   });
-// }, 5000);
+setTimeout(() => {
+  latestBlock = getLatestBlock().index;
+  writeMessageToPeers(MessageType.REQUEST_BLOCK, {
+    index: latestBlock + 1,
+  });
+}, 12000);
 
 setTimeout(() => {
-  writeMessageToPeers(MessageType.REQUEST_BLOCK, {
-    index: blockchain[blockchain.length - 1] + 1,
-  });
-});
+  writeMessageToPeers(MessageType.REQUEST_LATEST_BLOCK, null);
+}, 12000);
+
+// setTimeout(() => {
+//   writeMessageToPeers(MessageType.REQUEST_BLOCK, {
+//     index: blockchain[blockchain.length - 1] + 1,
+//   });
+// }, 12000);
 
 setTimeout(() => {
   writeMessageToPeers(MessageType.REQUEST_ALL_REGISTER_MINERS, null);
-}, 15000);
+}, 14000);
 
 setTimeout(() => {
   registeredMiners.push(myPeerId.toString("hex"));
@@ -229,24 +253,35 @@ setTimeout(() => {
   console.log(
     "---------------------------- End Register my miner ----------------------------"
   );
-}, 15000);
+}, 16000);
 
-const job = new CronJob("30 * * * * *", () => {
-  let index = 0;
-  if (lastBlockMinedBy) {
-    let newIndex = registeredMiners.indexOf(lastBlockMinedBy);
-    index = newIndex + 1 > registeredMiners.length - 1 ? 0 : newIndex + 1;
-  }
+const job = new CronJob("45 * * * * *", () => {
+  // let index = 0;
+  // if (lastBlockMinedBy) {
+  //   let newIndex = registeredMiners.indexOf(lastBlockMinedBy);
+  //   index =
+  //     newIndex + 1 > registeredMiners.length - 1 &&
+  //     latestBlock === networkLatestblock
+  //       ? 0
+  //       : newIndex + 1;
+  //   console.log(index);
+  // }
 
-  lastBlockMinedBy = registeredMiners[index];
-  console.log(
-    "-------------------- Requesting new block from " +
-      registeredMiners[index] +
-      " index " +
-      index
-  );
+  // lastBlockMinedBy = registeredMiners[index];
+  // console.log(
+  //   "-------------------- Requesting new block from " +
+  //     registeredMiners[index] +
+  //     " index " +
+  //     index
+  // );
+  const currentBlockIndex = getLatestBlock().index;
+
+  const nextTurnIndex = (currentBlockIndex + 1) % registeredMiners.length;
+  const scheduledMiner = registeredMiners[nextTurnIndex];
+  console.log("----||||| Current block index: " + currentBlockIndex);
+  console.log("----||||| Miner: " + scheduledMiner);
   console.log(JSON.stringify(registeredMiners));
-  if (registeredMiners[index] === myPeerId.toString("hex")) {
+  if (scheduledMiner === myPeerId.toString("hex")) {
     console.log("-------------------- Create next block --------------------");
     let newBlock = generateNextBlock(null);
     addBlock(newBlock);
